@@ -1,10 +1,10 @@
 {
 	"name": "pixiv-cli",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "CLI tool for pixiv",
 	"main": "index.js",
 	"bin": {
-		"pixiv": "./index.js"
+		"pixiv": "index.js"
 	},
 	"type": "module",
 	"repository": {
@@ -23,7 +23,6 @@
 	"homepage": "https://github.com/FireStreaker2/pixiv-cli#readme",
 	"dependencies": {
 		"commander": "^12.1.0",
-		"node-fetch": "^3.3.2",
-		"pixiv-node": "^1.0.2"
+		"pixiv-node": "^1.0.7"
 	}
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import fs from "fs";
+import fs from "fs/promises";
 import { program } from "commander";
 import pixiv from "pixiv-node";
 
-program.name("pixiv").description("CLI tool for pixiv").version("1.0.0");
+program.name("pixiv").description("CLI tool for pixiv").version("1.0.1");
 
 program
 	.command("download")
@@ -12,6 +12,16 @@ program
 	.argument("<id>", "ID of post")
 	.option("-d, --directory <directory>")
 	.action(async (query, options) => {
+		const file = new URL("./settings.json", import.meta.url);
+
+		try {
+			await fs.access(file);
+
+			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+
+			if (settings.cookie) pixiv.login(settings.cookie);
+		} catch (error) {}
+
 		const data = await pixiv.getImages(query);
 		console.log(`Downloading post ${query}...`);
 
@@ -28,13 +38,13 @@ program
 			if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
 			if (options.directory)
-				await fs.promises.mkdir(`./${options.directory}`, { recursive: true });
+				await fs.mkdir(`./${options.directory}`, { recursive: true });
 
 			const buffer = await response.arrayBuffer();
-			await fs.promises.writeFile(
+			await fs.writeFile(
 				`./${
 					options.directory ? `${options.directory}/` : ""
-				}${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
+				}${query}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
 				new Uint8Array(buffer)
 			);
 		}
@@ -48,6 +58,16 @@ program
 	.argument("<id>", "ID of post")
 	.option("-c, --comments")
 	.action(async (query, options) => {
+		const file = new URL("./settings.json", import.meta.url);
+
+		try {
+			await fs.access(file);
+
+			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+
+			if (settings.cookie) pixiv.login(settings.cookie);
+		} catch (error) {}
+
 		const data = await pixiv.getPost(query);
 		const info = data.body;
 
@@ -91,6 +111,44 @@ program
 				`  Twitter Card: ${info.extraData.meta.twitter.card}\n` +
 				`AI Type: ${info.aiType}`
 		);
+
+		if (options.comments) {
+			const data = await pixiv.getIllustComments(query);
+
+			console.log("\nComments:\n----------");
+
+			for (const comment of data.body.comments) {
+				console.log(
+					`${comment.userName} (${comment.userId}): ${comment.comment}`
+				);
+			}
+		}
+	});
+
+program
+	.command("login")
+	.description("Login to pixiv with your browser cookie")
+	.argument("<cookie>", "Your browser cookie")
+	.action(async (cookie) => {
+		const file = new URL("./settings.json", import.meta.url);
+
+		if (!(await fs.access(file))) await fs.writeFile(file, "{}", "utf-8");
+		const data = await fs.readFile(file, "utf-8");
+		const settings = JSON.parse(data);
+
+		settings.cookie = cookie;
+		await fs.writeFile(
+			new URL("./settings.json", import.meta.url),
+			JSON.stringify(settings, null, 2),
+			"utf-8"
+		);
+
+		console.log(
+			`Succesfully logged in with cookie ${cookie.substring(
+				cookie.indexOf("=") + 1,
+				cookie.indexOf("ID=") + 5
+			)}****${cookie.substring(cookie.length - 2)}!`
+		);
 	});
 
 program
@@ -101,6 +159,16 @@ program
 	.option("-t, --type <all|illustrations|manga>")
 	.option("-a, --ai")
 	.action(async (query, options) => {
+		const file = new URL("./settings.json", import.meta.url);
+
+		try {
+			await fs.access(file);
+
+			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+
+			if (settings.cookie) pixiv.login(settings.cookie);
+		} catch (error) {}
+
 		const data = await pixiv.search({
 			query,
 			...(options.mode && { mode: options.mode }),
@@ -118,7 +186,7 @@ program
 					`Tags: ${post.tags.join(", ")}\n` +
 					`Uploaded by: ${post.userName} (${post.userId})\n` +
 					`Dimensions: ${post.width}x${post.height}\n` +
-					`Page Count: ${post.pageCount}` +
+					`Page Count: ${post.pageCount}\n` +
 					`Alt Text: ${post.alt}\n` +
 					`Created At: ${post.createDate}\n` +
 					`Updated At: ${post.updateDate}\n`
