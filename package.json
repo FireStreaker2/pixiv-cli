@@ -1,10 +1,18 @@
 {
 	"name": "pixiv-cli",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "CLI tool for pixiv",
-	"main": "index.js",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"scripts": {
+		"build": "tsc && npm run minify",
+		"minify": "terser dist/index.js --compress --mangle --output dist/index.js"
+	},
+	"files": [
+		"dist/**/*"
+	],
 	"bin": {
-		"pixiv": "index.js"
+		"pixiv": "dist/index.js"
 	},
 	"type": "module",
 	"repository": {
@@ -24,5 +32,10 @@
 	"dependencies": {
 		"commander": "^12.1.0",
 		"pixiv-node": "^1.0.7"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.10",
+		"terser": "^5.31.2",
+		"typescript": "^5.5.3"
 	}
 }

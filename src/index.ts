@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
-import fs from "fs/promises";
+import { access, mkdir, readFile, writeFile } from "fs/promises";
 import { program } from "commander";
 import pixiv from "pixiv-node";
 
-program.name("pixiv").description("CLI tool for pixiv").version("1.0.1");
+program.name("pixiv").description("CLI tool for pixiv").version("1.0.2");
+
+interface Data {
+	body: any;
+}
 
 program
 	.command("download")
@@ -12,17 +16,17 @@ program
 	.argument("<id>", "ID of post")
 	.option("-d, --directory <directory>")
 	.action(async (query, options) => {
-		const file = new URL("./settings.json", import.meta.url);
+		const file = new URL("../settings.json", import.meta.url);
 
 		try {
-			await fs.access(file);
+			await access(file);
 
-			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+			const settings = JSON.parse(await readFile(file, "utf-8"));
 
 			if (settings.cookie) pixiv.login(settings.cookie);
 		} catch (error) {}
 
-		const data = await pixiv.getImages(query);
+		const data = (await pixiv.getImages(query)) as Data;
 		console.log(`Downloading post ${query}...`);
 
 		const images = data.body;
@@ -38,10 +42,10 @@ program
 			if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
 			if (options.directory)
-				await fs.mkdir(`./${options.directory}`, { recursive: true });
+				await mkdir(`./${options.directory}`, { recursive: true });
 
 			const buffer = await response.arrayBuffer();
-			await fs.writeFile(
+			await writeFile(
 				`./${
 					options.directory ? `${options.directory}/` : ""
 				}${query}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
@@ -58,17 +62,17 @@ program
 	.argument("<id>", "ID of post")
 	.option("-c, --comments")
 	.action(async (query, options) => {
-		const file = new URL("./settings.json", import.meta.url);
+		const file = new URL("../settings.json", import.meta.url);
 
 		try {
-			await fs.access(file);
+			await access(file);
 
-			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+			const settings = JSON.parse(await readFile(file, "utf-8"));
 
 			if (settings.cookie) pixiv.login(settings.cookie);
 		} catch (error) {}
 
-		const data = await pixiv.getPost(query);
+		const data = (await pixiv.getPost(query)) as Data;
 		const info = data.body;
 
 		console.log(
@@ -113,7 +117,7 @@ program
 		);
 
 		if (options.comments) {
-			const data = await pixiv.getIllustComments(query);
+			const data = (await pixiv.getIllustComments(query)) as Data;
 
 			console.log("\nComments:\n----------");
 
@@ -130,15 +134,20 @@ program
 	.description("Login to pixiv with your browser cookie")
 	.argument("<cookie>", "Your browser cookie")
 	.action(async (cookie) => {
-		const file = new URL("./settings.json", import.meta.url);
+		const file = new URL("../settings.json", import.meta.url);
 
-		if (!(await fs.access(file))) await fs.writeFile(file, "{}", "utf-8");
-		const data = await fs.readFile(file, "utf-8");
+		try {
+			await access(file);
+		} catch (error) {
+			await writeFile(file, "{}", "utf-8");
+		}
+
+		const data = await readFile(file, "utf-8");
 		const settings = JSON.parse(data);
 
 		settings.cookie = cookie;
-		await fs.writeFile(
-			new URL("./settings.json", import.meta.url),
+		await writeFile(
+			new URL("../settings.json", import.meta.url),
 			JSON.stringify(settings, null, 2),
 			"utf-8"
 		);
@@ -159,22 +168,22 @@ program
 	.option("-t, --type <all|illustrations|manga>")
 	.option("-a, --ai")
 	.action(async (query, options) => {
-		const file = new URL("./settings.json", import.meta.url);
+		const file = new URL("../settings.json", import.meta.url);
 
 		try {
-			await fs.access(file);
+			await access(file);
 
-			const settings = JSON.parse(await fs.readFile(file, "utf-8"));
+			const settings = JSON.parse(await readFile(file, "utf-8"));
 
 			if (settings.cookie) pixiv.login(settings.cookie);
 		} catch (error) {}
 
-		const data = await pixiv.search({
+		const data = (await pixiv.search({
 			query,
 			...(options.mode && { mode: options.mode }),
 			...(options.type && { type: options.type }),
 			...(options.ai && { ai: 1 }),
-		});
+		})) as Data;
 
 		const posts = data.body.illustManga.data;
 
