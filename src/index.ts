@@ -4,7 +4,7 @@ import { access, mkdir, readFile, writeFile } from "fs/promises";
 import { program } from "commander";
 import pixiv from "pixiv-node";
 
-program.name("pixiv").description("CLI tool for pixiv").version("1.0.2");
+program.name("pixiv").description("CLI tool for pixiv").version("1.0.3");
 
 interface Data {
 	body: any;
@@ -13,9 +13,10 @@ interface Data {
 program
 	.command("download")
 	.description("Download a specific post")
+	.alias("d")
 	.argument("<id>", "ID of post")
-	.option("-d, --directory <directory>")
-	.action(async (query, options) => {
+	.option("-d, --directory <directory>", "Directory to download images to")
+	.action(async (id: string, options: { directory: string }) => {
 		const file = new URL("../settings.json", import.meta.url);
 
 		try {
@@ -26,8 +27,8 @@ program
 			if (settings.cookie) pixiv.login(settings.cookie);
 		} catch (error) {}
 
-		const data = (await pixiv.getImages(query)) as Data;
-		console.log(`Downloading post ${query}...`);
+		const data = (await pixiv.getImages(id)) as Data;
+		console.log(`Downloading post ${id}...`);
 
 		const images = data.body;
 
@@ -48,7 +49,7 @@ program
 			await writeFile(
 				`./${
 					options.directory ? `${options.directory}/` : ""
-				}${query}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
+				}${id}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
 				new Uint8Array(buffer)
 			);
 		}
@@ -59,9 +60,10 @@ program
 program
 	.command("info")
 	.description("Get info on a specific post")
+	.alias("i")
 	.argument("<id>", "ID of post")
-	.option("-c, --comments")
-	.action(async (query, options) => {
+	.option("-c, --comments", "Whether to include comments in the output")
+	.action(async (id: string, options: { comments: boolean }) => {
 		const file = new URL("../settings.json", import.meta.url);
 
 		try {
@@ -72,7 +74,7 @@ program
 			if (settings.cookie) pixiv.login(settings.cookie);
 		} catch (error) {}
 
-		const data = (await pixiv.getPost(query)) as Data;
+		const data = (await pixiv.getPost(id)) as Data;
 		const info = data.body;
 
 		console.log(
@@ -117,7 +119,7 @@ program
 		);
 
 		if (options.comments) {
-			const data = (await pixiv.getIllustComments(query)) as Data;
+			const data = (await pixiv.getIllustComments(id)) as Data;
 
 			console.log("\nComments:\n----------");
 
@@ -132,8 +134,9 @@ program
 program
 	.command("login")
 	.description("Login to pixiv with your browser cookie")
+	.alias("l")
 	.argument("<cookie>", "Your browser cookie")
-	.action(async (cookie) => {
+	.action(async (cookie: string) => {
 		const file = new URL("../settings.json", import.meta.url);
 
 		try {
@@ -163,46 +166,58 @@ program
 program
 	.command("search")
 	.description("Search pixiv for a post")
+	.alias("s")
 	.argument("<query>", "Topic to search for")
-	.option("-m, --mode <all|safe|r18>")
-	.option("-t, --type <all|illustrations|manga>")
-	.option("-a, --ai")
-	.action(async (query, options) => {
-		const file = new URL("../settings.json", import.meta.url);
+	.option("-m, --mode <all|safe|r18>", "Mode of the search")
+	.option("-t, --type <all|illustrations|manga>", "What to search for")
+	.option("-a, --ai", "Whether to include AI generated art")
+	.action(
+		async (
+			query: string,
+			options: {
+				mode: "all" | "safe" | "r18";
+				type: "all" | "illustrations" | "manga" | "illust_and_ugoira";
+				ai: string | boolean | 1;
+			}
+		) => {
+			const file = new URL("../settings.json", import.meta.url);
 
-		try {
-			await access(file);
+			try {
+				await access(file);
 
-			const settings = JSON.parse(await readFile(file, "utf-8"));
+				const settings = JSON.parse(await readFile(file, "utf-8"));
 
-			if (settings.cookie) pixiv.login(settings.cookie);
-		} catch (error) {}
+				if (settings.cookie) pixiv.login(settings.cookie);
+			} catch (error) {}
 
-		const data = (await pixiv.search({
-			query,
-			...(options.mode && { mode: options.mode }),
-			...(options.type && { type: options.type }),
-			...(options.ai && { ai: 1 }),
-		})) as Data;
+			if (options.type === "illustrations") options.type = "illust_and_ugoira";
 
-		const posts = data.body.illustManga.data;
+			const data = (await pixiv.search({
+				query,
+				...(options.mode && { mode: options.mode }),
+				...(options.type && { type: options.type }),
+				...(options.ai && { ai: 1 }),
+			})) as Data;
 
-		for (let i = 0; i < posts.length; i++) {
-			const post = posts[i];
+			const posts = data.body.illustManga.data;
 
-			console.log(
-				`ID: ${post.id}\n` +
-					`Tags: ${post.tags.join(", ")}\n` +
-					`Uploaded by: ${post.userName} (${post.userId})\n` +
-					`Dimensions: ${post.width}x${post.height}\n` +
-					`Page Count: ${post.pageCount}\n` +
-					`Alt Text: ${post.alt}\n` +
-					`Created At: ${post.createDate}\n` +
-					`Updated At: ${post.updateDate}\n`
-			);
+			for (let i = 0; i < posts.length; i++) {
+				const post = posts[i];
+
+				console.log(
+					`ID: ${post.id}\n` +
+						`Tags: ${post.tags.join(", ")}\n` +
+						`Uploaded by: ${post.userName} (${post.userId})\n` +
+						`Dimensions: ${post.width}x${post.height}\n` +
+						`Page Count: ${post.pageCount}\n` +
+						`Alt Text: ${post.alt}\n` +
+						`Created At: ${post.createDate}\n` +
+						`Updated At: ${post.updateDate}\n`
+				);
+			}
+
+			console.log(`Related tags: ${data.body.relatedTags.join(", ")}`);
 		}
-
-		console.log(`Related tags: ${data.body.relatedTags.join(", ")}`);
-	});
+	);
 
 program.parse();
