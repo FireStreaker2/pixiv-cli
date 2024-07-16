@@ -1,12 +1,13 @@
 {
 	"name": "pixiv-cli",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "CLI tool for pixiv",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"scripts": {
 		"build": "tsc && npm run minify",
-		"minify": "terser dist/index.js --compress --mangle --output dist/index.js"
+		"postbuild": "sed -i 's|#!/usr/bin/env bun|#!/usr/bin/env node|' dist/index.js",
+		"minify": "terser dist/index.js --compress --mangle --toplevel --output dist/index.js"
 	},
 	"files": [
 		"dist/**/*"
@@ -30,6 +31,7 @@
 	},
 	"homepage": "https://github.com/FireStreaker2/pixiv-cli#readme",
 	"dependencies": {
+		"chalk": "^5.3.0",
 		"commander": "^12.1.0",
 		"pixiv-node": "^1.0.7"
 	},

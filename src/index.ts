@@ -1,10 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import { access, mkdir, readFile, writeFile } from "fs/promises";
 import { program } from "commander";
+import chalk from "chalk";
 import pixiv from "pixiv-node";
 
-program.name("pixiv").description("CLI tool for pixiv").version("1.0.3");
+program.name("pixiv").description("CLI tool for pixiv").version("1.0.4");
 
 interface Data {
 	body: any;
@@ -28,9 +29,10 @@ program
 		} catch (error) {}
 
 		const data = (await pixiv.getImages(id)) as Data;
-		console.log(`Downloading post ${id}...`);
+		console.log(`Downloading post ${chalk.bold(id)}...`);
 
 		const images = data.body;
+		let progress = 0;
 
 		for (let i = 0; i < images.length; i++) {
 			const image = images[i].urls.original;
@@ -52,9 +54,26 @@ program
 				}${id}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
 				new Uint8Array(buffer)
 			);
+
+			progress++;
+
+			const percentage = (progress / images.length) * 100;
+			const completed = Math.round((percentage / 100) * 20);
+
+			process.stdout.write(
+				`\r[${"#".repeat(completed)}${"-".repeat(
+					20 - completed
+				)}] ${percentage.toFixed(2)}%`
+			);
 		}
 
-		console.log("Succesfully downloaded!");
+		console.log(
+			`\nSuccesfully downloaded ${chalk.bold(images.length)} pages${
+				options.directory
+					? ` to ${chalk.bold(`${process.cwd()}/${options.directory}`)}`
+					: ""
+			}!`
+		);
 	});
 
 program
@@ -78,56 +97,93 @@ program
 		const info = data.body;
 
 		console.log(
-			`Illustration ID: ${info.illustId}\n` +
-				`Title: ${info.illustTitle}\n` +
-				`Comment: ${info.illustComment}\n` +
-				`ID: ${info.id}\n` +
-				`Description: ${info.description}\n` +
-				`Illustration Type: ${info.illustType}\n` +
-				`Create Date: ${info.createDate}\n` +
-				`Upload Date: ${info.uploadDate}\n` +
-				`URLs:\n` +
-				`  Mini: ${info.urls.mini}\n` +
-				`  Thumb: ${info.urls.thumb}\n` +
-				`  Small: ${info.urls.small}\n` +
-				`  Regular: ${info.urls.regular}\n` +
-				`  Original: ${info.urls.original}\n` +
-				`Dimensions: ${info.width} x ${info.height}\n` +
-				`Page Count: ${info.pageCount}\n` +
-				`Bookmark Count: ${info.bookmarkCount}\n` +
-				`Like Count: ${info.likeCount}\n` +
-				`Comment Count: ${info.commentCount}\n` +
-				`Response Count: ${info.responseCount}\n` +
-				`View Count: ${info.viewCount}\n` +
-				`Extra info:\n` +
-				`  Meta Title: ${info.extraData.meta.title}\n` +
-				`  Meta Description: ${info.extraData.meta.description}\n` +
-				`  Canonical URL: ${info.extraData.meta.canonical}\n` +
-				`  Alternate Languages:\n` +
-				`    Japanese: ${info.extraData.meta.alternateLanguages.ja}\n` +
-				`    English: ${info.extraData.meta.alternateLanguages.en}\n` +
-				`  Description Header: ${info.extraData.meta.descriptionHeader}\n` +
-				`  OGP Description: ${info.extraData.meta.ogp.description}\n` +
-				`  OGP Image: ${info.extraData.meta.ogp.image}\n` +
-				`  OGP Title: ${info.extraData.meta.ogp.title}\n` +
-				`  OGP Type: ${info.extraData.meta.ogp.type}\n` +
-				`  Twitter Description: ${info.extraData.meta.twitter.description}\n` +
-				`  Twitter Image: ${info.extraData.meta.twitter.image}\n` +
-				`  Twitter Title: ${info.extraData.meta.twitter.title}\n` +
-				`  Twitter Card: ${info.extraData.meta.twitter.card}\n` +
-				`AI Type: ${info.aiType}`
+			`${chalk.bold("Illustration ID:")} ${chalk.green(info.illustId)}\n` +
+				`${chalk.bold("Title:")} ${chalk.green(info.illustTitle)}\n` +
+				`${chalk.bold("Comment:")} ${chalk.green(info.illustComment)}\n` +
+				`${chalk.bold("ID:")} ${chalk.green(info.id)}\n` +
+				`${chalk.bold("Description:")} ${chalk.green(info.description)}\n` +
+				`${chalk.bold("Illustration Type:")} ${chalk.green(
+					info.illustType
+				)}\n` +
+				`${chalk.bold("Create Date:")} ${chalk.green(info.createDate)}\n` +
+				`${chalk.bold("Upload Date:")} ${chalk.green(info.uploadDate)}\n` +
+				`${chalk.bold("URLs:")}\n` +
+				`  ${chalk.bold("Mini:")} ${chalk.green(info.urls.mini)}\n` +
+				`  ${chalk.bold("Thumb:")} ${chalk.green(info.urls.thumb)}\n` +
+				`  ${chalk.bold("Small:")} ${chalk.green(info.urls.small)}\n` +
+				`  ${chalk.bold("Regular:")} ${chalk.green(info.urls.regular)}\n` +
+				`  ${chalk.bold("Original:")} ${chalk.green(info.urls.original)}\n` +
+				`${chalk.bold("Dimensions:")} ${chalk.green(
+					`${info.width} x ${info.height}`
+				)}\n` +
+				`${chalk.bold("Page Count:")} ${chalk.green(info.pageCount)}\n` +
+				`${chalk.bold("Bookmark Count:")} ${chalk.green(
+					info.bookmarkCount
+				)}\n` +
+				`${chalk.bold("Like Count:")} ${chalk.green(info.likeCount)}\n` +
+				`${chalk.bold("Comment Count:")} ${chalk.green(info.commentCount)}\n` +
+				`${chalk.bold("Response Count:")} ${chalk.green(
+					info.responseCount
+				)}\n` +
+				`${chalk.bold("View Count:")} ${chalk.green(info.viewCount)}\n` +
+				`${chalk.bold("Extra info:")}\n` +
+				`  ${chalk.bold("Meta Title:")} ${chalk.green(
+					info.extraData.meta.title
+				)}\n` +
+				`  ${chalk.bold("Meta Description:")} ${chalk.green(
+					info.extraData.meta.description
+				)}\n` +
+				`  ${chalk.bold("Canonical URL:")} ${chalk.green(
+					info.extraData.meta.canonical
+				)}\n` +
+				`  ${chalk.bold("Alternate Languages:")}\n` +
+				`    ${chalk.bold("Japanese:")} ${chalk.green(
+					info.extraData.meta.alternateLanguages.ja
+				)}\n` +
+				`    ${chalk.bold("English:")} ${chalk.green(
+					info.extraData.meta.alternateLanguages.en
+				)}\n` +
+				`  ${chalk.bold("Description Header:")} ${chalk.green(
+					info.extraData.meta.descriptionHeader
+				)}\n` +
+				`  ${chalk.bold("OGP Description:")} ${chalk.green(
+					info.extraData.meta.ogp.description
+				)}\n` +
+				`  ${chalk.bold("OGP Image:")} ${chalk.green(
+					info.extraData.meta.ogp.image
+				)}\n` +
+				`  ${chalk.bold("OGP Title:")} ${chalk.green(
+					info.extraData.meta.ogp.title
+				)}\n` +
+				`  ${chalk.bold("OGP Type:")} ${chalk.green(
+					info.extraData.meta.ogp.type
+				)}\n` +
+				`  ${chalk.bold("Twitter Description:")} ${chalk.green(
+					info.extraData.meta.twitter.description
+				)}\n` +
+				`  ${chalk.bold("Twitter Image:")} ${chalk.green(
+					info.extraData.meta.twitter.image
+				)}\n` +
+				`  ${chalk.bold("Twitter Title:")} ${chalk.green(
+					info.extraData.meta.twitter.title
+				)}\n` +
+				`  ${chalk.bold("Twitter Card:")} ${chalk.green(
+					info.extraData.meta.twitter.card
+				)}\n` +
+				`${chalk.bold("AI Type:")} ${chalk.green(info.aiType)}`
 		);
 
 		if (options.comments) {
 			const data = (await pixiv.getIllustComments(id)) as Data;
 
-			console.log("\nComments:\n----------");
+			console.log(chalk.bold("\nComments:\n---------"));
 
-			for (const comment of data.body.comments) {
+			for (const comment of data.body.comments)
 				console.log(
-					`${comment.userName} (${comment.userId}): ${comment.comment}`
+					`${chalk.blue(comment.userName)} (${chalk.yellow(comment.userId)}): ${
+						comment.comment
+					}`
 				);
-			}
 		}
 	});
 
@@ -156,10 +212,11 @@ program
 		);
 
 		console.log(
-			`Succesfully logged in with cookie ${cookie.substring(
-				cookie.indexOf("=") + 1,
-				cookie.indexOf("ID=") + 5
-			)}****${cookie.substring(cookie.length - 2)}!`
+			`Succesfully logged in with cookie "${chalk.red(
+				cookie.substring("PHPSESSID=".length, "PHPSESSID=".length + 2)
+			)}${chalk.bold(
+				"*".repeat(cookie.length - "PHPSESSID=".length - 4)
+			)}${chalk.red(cookie.slice(-2))}"!`
 		);
 	});
 
@@ -199,24 +256,23 @@ program
 				...(options.ai && { ai: 1 }),
 			})) as Data;
 
-			const posts = data.body.illustManga.data;
-
-			for (let i = 0; i < posts.length; i++) {
-				const post = posts[i];
-
+			for (const post of data.body.illustManga.data)
 				console.log(
-					`ID: ${post.id}\n` +
-						`Tags: ${post.tags.join(", ")}\n` +
-						`Uploaded by: ${post.userName} (${post.userId})\n` +
-						`Dimensions: ${post.width}x${post.height}\n` +
-						`Page Count: ${post.pageCount}\n` +
-						`Alt Text: ${post.alt}\n` +
-						`Created At: ${post.createDate}\n` +
-						`Updated At: ${post.updateDate}\n`
+					`${chalk.yellow(`ID: ${post.id}`)}\n` +
+						`${chalk.cyan(`Tags: ${post.tags.join(", ")}`)}\n` +
+						`${chalk.green(
+							`Uploaded by: ${post.userName} (${post.userId})`
+						)}\n` +
+						`${chalk.magenta(`Dimensions: ${post.width}x${post.height}`)}\n` +
+						`${chalk.blue(`Page Count: ${post.pageCount}`)}\n` +
+						`${chalk.white(`Alt Text: ${post.alt}`)}\n` +
+						`${chalk.gray(`Created At: ${post.createDate}`)}\n` +
+						`${chalk.gray(`Updated At: ${post.updateDate}`)}\n`
 				);
-			}
 
-			console.log(`Related tags: ${data.body.relatedTags.join(", ")}`);
+			console.log(
+				`${chalk.yellow(`Related tags: ${data.body.relatedTags.join(", ")}`)}`
+			);
 		}
 	);
 
