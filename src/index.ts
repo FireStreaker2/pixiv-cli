@@ -5,11 +5,28 @@ import { program } from "commander";
 import chalk from "chalk";
 import pixiv from "pixiv-node";
 
-program.name("pixiv").description("CLI tool for pixiv").version("1.0.4");
+program.name("pixiv").description("CLI tool for pixiv").version("1.0.5");
 
 interface Data {
 	body: any;
 }
+
+const showImage = async (data: Buffer) => {
+	let base64Data = data.toString("base64");
+	let pos = 0;
+	const chunkSize = 4096;
+
+	while (pos < base64Data.length) {
+		process.stdout.write("\x1b_G");
+		if (pos === 0) process.stdout.write("a=T,f=100,");
+
+		let chunk = base64Data.slice(pos, pos + chunkSize);
+		pos += chunkSize;
+
+		if (pos < base64Data.length) process.stdout.write("m=1");
+		process.stdout.write(`;${chunk}\x1b\\`);
+	}
+};
 
 program
 	.command("download")
@@ -17,64 +34,76 @@ program
 	.alias("d")
 	.argument("<id>", "ID of post")
 	.option("-d, --directory <directory>", "Directory to download images to")
-	.action(async (id: string, options: { directory: string }) => {
-		const file = new URL("../settings.json", import.meta.url);
+	.option(
+		"-t, --type <thumb_mini|small|regular|original>",
+		"Type of image to download"
+	)
+	.action(
+		async (
+			id: string,
+			options: {
+				directory: string;
+				type: "thumb_mini" | "small" | "regular" | "original";
+			}
+		) => {
+			const file = new URL("../settings.json", import.meta.url);
 
-		try {
-			await access(file);
+			try {
+				await access(file);
 
-			const settings = JSON.parse(await readFile(file, "utf-8"));
+				const settings = JSON.parse(await readFile(file, "utf-8"));
 
-			if (settings.cookie) pixiv.login(settings.cookie);
-		} catch (error) {}
+				if (settings.cookie) pixiv.login(settings.cookie);
+			} catch (error) {}
 
-		const data = (await pixiv.getImages(id)) as Data;
-		console.log(`Downloading post ${chalk.bold(id)}...`);
+			const data = (await pixiv.getImages(id)) as Data;
+			console.log(`Downloading post ${chalk.bold(id)}...`);
 
-		const images = data.body;
-		let progress = 0;
+			const images = data.body;
+			let progress = 0;
 
-		for (let i = 0; i < images.length; i++) {
-			const image = images[i].urls.original;
-			const response = await fetch(image, {
-				headers: {
-					Referer: "http://www.pixiv.net/",
-				},
-			});
+			for (let i = 0; i < images.length; i++) {
+				const image = images[i].urls[options.type ? options.type : "original"];
+				const response = await fetch(image, {
+					headers: {
+						Referer: "http://www.pixiv.net/",
+					},
+				});
 
-			if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+				if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
-			if (options.directory)
-				await mkdir(`./${options.directory}`, { recursive: true });
+				if (options.directory)
+					await mkdir(`./${options.directory}`, { recursive: true });
 
-			const buffer = await response.arrayBuffer();
-			await writeFile(
-				`./${
-					options.directory ? `${options.directory}/` : ""
-				}${id}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
-				new Uint8Array(buffer)
-			);
+				const buffer = await response.arrayBuffer();
+				await writeFile(
+					`./${
+						options.directory ? `${options.directory}/` : ""
+					}${id}_${i}.${image.substring(image.lastIndexOf(".") + 1)}`,
+					new Uint8Array(buffer)
+				);
 
-			progress++;
+				progress++;
 
-			const percentage = (progress / images.length) * 100;
-			const completed = Math.round((percentage / 100) * 20);
+				const percentage = (progress / images.length) * 100;
+				const completed = Math.round((percentage / 100) * 20);
 
-			process.stdout.write(
-				`\r[${"#".repeat(completed)}${"-".repeat(
-					20 - completed
-				)}] ${percentage.toFixed(2)}%`
+				process.stdout.write(
+					`\r[${"#".repeat(completed)}${"-".repeat(
+						20 - completed
+					)}] ${percentage.toFixed(2)}%`
+				);
+			}
+
+			console.log(
+				`\nSuccesfully downloaded ${chalk.bold(images.length)} pages${
+					options.directory
+						? ` to ${chalk.bold(`${process.cwd()}/${options.directory}`)}`
+						: ""
+				}!`
 			);
 		}
-
-		console.log(
-			`\nSuccesfully downloaded ${chalk.bold(images.length)} pages${
-				options.directory
-					? ` to ${chalk.bold(`${process.cwd()}/${options.directory}`)}`
-					: ""
-			}!`
-		);
-	});
+	);
 
 program
 	.command("info")
@@ -82,110 +111,135 @@ program
 	.alias("i")
 	.argument("<id>", "ID of post")
 	.option("-c, --comments", "Whether to include comments in the output")
-	.action(async (id: string, options: { comments: boolean }) => {
-		const file = new URL("../settings.json", import.meta.url);
+	.option(
+		"-i, --image",
+		"Whether to display images with the Kitty Graphics Protocol"
+	)
+	.action(
+		async (
+			id: string,
+			options: {
+				comments: boolean;
+				image: boolean;
+			}
+		) => {
+			const file = new URL("../settings.json", import.meta.url);
 
-		try {
-			await access(file);
+			try {
+				await access(file);
 
-			const settings = JSON.parse(await readFile(file, "utf-8"));
+				const settings = JSON.parse(await readFile(file, "utf-8"));
 
-			if (settings.cookie) pixiv.login(settings.cookie);
-		} catch (error) {}
+				if (settings.cookie) pixiv.login(settings.cookie);
+			} catch (error) {}
 
-		const data = (await pixiv.getPost(id)) as Data;
-		const info = data.body;
+			const data = (await pixiv.getPost(id)) as Data;
+			const info = data.body;
 
-		console.log(
-			`${chalk.bold("Illustration ID:")} ${chalk.green(info.illustId)}\n` +
-				`${chalk.bold("Title:")} ${chalk.green(info.illustTitle)}\n` +
-				`${chalk.bold("Comment:")} ${chalk.green(info.illustComment)}\n` +
-				`${chalk.bold("ID:")} ${chalk.green(info.id)}\n` +
-				`${chalk.bold("Description:")} ${chalk.green(info.description)}\n` +
-				`${chalk.bold("Illustration Type:")} ${chalk.green(
-					info.illustType
-				)}\n` +
-				`${chalk.bold("Create Date:")} ${chalk.green(info.createDate)}\n` +
-				`${chalk.bold("Upload Date:")} ${chalk.green(info.uploadDate)}\n` +
-				`${chalk.bold("URLs:")}\n` +
-				`  ${chalk.bold("Mini:")} ${chalk.green(info.urls.mini)}\n` +
-				`  ${chalk.bold("Thumb:")} ${chalk.green(info.urls.thumb)}\n` +
-				`  ${chalk.bold("Small:")} ${chalk.green(info.urls.small)}\n` +
-				`  ${chalk.bold("Regular:")} ${chalk.green(info.urls.regular)}\n` +
-				`  ${chalk.bold("Original:")} ${chalk.green(info.urls.original)}\n` +
-				`${chalk.bold("Dimensions:")} ${chalk.green(
-					`${info.width} x ${info.height}`
-				)}\n` +
-				`${chalk.bold("Page Count:")} ${chalk.green(info.pageCount)}\n` +
-				`${chalk.bold("Bookmark Count:")} ${chalk.green(
-					info.bookmarkCount
-				)}\n` +
-				`${chalk.bold("Like Count:")} ${chalk.green(info.likeCount)}\n` +
-				`${chalk.bold("Comment Count:")} ${chalk.green(info.commentCount)}\n` +
-				`${chalk.bold("Response Count:")} ${chalk.green(
-					info.responseCount
-				)}\n` +
-				`${chalk.bold("View Count:")} ${chalk.green(info.viewCount)}\n` +
-				`${chalk.bold("Extra info:")}\n` +
-				`  ${chalk.bold("Meta Title:")} ${chalk.green(
-					info.extraData.meta.title
-				)}\n` +
-				`  ${chalk.bold("Meta Description:")} ${chalk.green(
-					info.extraData.meta.description
-				)}\n` +
-				`  ${chalk.bold("Canonical URL:")} ${chalk.green(
-					info.extraData.meta.canonical
-				)}\n` +
-				`  ${chalk.bold("Alternate Languages:")}\n` +
-				`    ${chalk.bold("Japanese:")} ${chalk.green(
-					info.extraData.meta.alternateLanguages.ja
-				)}\n` +
-				`    ${chalk.bold("English:")} ${chalk.green(
-					info.extraData.meta.alternateLanguages.en
-				)}\n` +
-				`  ${chalk.bold("Description Header:")} ${chalk.green(
-					info.extraData.meta.descriptionHeader
-				)}\n` +
-				`  ${chalk.bold("OGP Description:")} ${chalk.green(
-					info.extraData.meta.ogp.description
-				)}\n` +
-				`  ${chalk.bold("OGP Image:")} ${chalk.green(
-					info.extraData.meta.ogp.image
-				)}\n` +
-				`  ${chalk.bold("OGP Title:")} ${chalk.green(
-					info.extraData.meta.ogp.title
-				)}\n` +
-				`  ${chalk.bold("OGP Type:")} ${chalk.green(
-					info.extraData.meta.ogp.type
-				)}\n` +
-				`  ${chalk.bold("Twitter Description:")} ${chalk.green(
-					info.extraData.meta.twitter.description
-				)}\n` +
-				`  ${chalk.bold("Twitter Image:")} ${chalk.green(
-					info.extraData.meta.twitter.image
-				)}\n` +
-				`  ${chalk.bold("Twitter Title:")} ${chalk.green(
-					info.extraData.meta.twitter.title
-				)}\n` +
-				`  ${chalk.bold("Twitter Card:")} ${chalk.green(
-					info.extraData.meta.twitter.card
-				)}\n` +
-				`${chalk.bold("AI Type:")} ${chalk.green(info.aiType)}`
-		);
+			console.log(
+				`${chalk.bold("Illustration ID:")} ${chalk.green(info.illustId)}\n` +
+					`${chalk.bold("Title:")} ${chalk.green(info.illustTitle)}\n` +
+					`${chalk.bold("Comment:")} ${chalk.green(info.illustComment)}\n` +
+					`${chalk.bold("ID:")} ${chalk.green(info.id)}\n` +
+					`${chalk.bold("Description:")} ${chalk.green(info.description)}\n` +
+					`${chalk.bold("Illustration Type:")} ${chalk.green(
+						info.illustType
+					)}\n` +
+					`${chalk.bold("Create Date:")} ${chalk.green(info.createDate)}\n` +
+					`${chalk.bold("Upload Date:")} ${chalk.green(info.uploadDate)}\n` +
+					`${chalk.bold("URLs:")}\n` +
+					`  ${chalk.bold("Mini:")} ${chalk.green(info.urls.mini)}\n` +
+					`  ${chalk.bold("Thumb:")} ${chalk.green(info.urls.thumb)}\n` +
+					`  ${chalk.bold("Small:")} ${chalk.green(info.urls.small)}\n` +
+					`  ${chalk.bold("Regular:")} ${chalk.green(info.urls.regular)}\n` +
+					`  ${chalk.bold("Original:")} ${chalk.green(info.urls.original)}\n` +
+					`${chalk.bold("Dimensions:")} ${chalk.green(
+						`${info.width} x ${info.height}`
+					)}\n` +
+					`${chalk.bold("Page Count:")} ${chalk.green(info.pageCount)}\n` +
+					`${chalk.bold("Bookmark Count:")} ${chalk.green(
+						info.bookmarkCount
+					)}\n` +
+					`${chalk.bold("Like Count:")} ${chalk.green(info.likeCount)}\n` +
+					`${chalk.bold("Comment Count:")} ${chalk.green(
+						info.commentCount
+					)}\n` +
+					`${chalk.bold("Response Count:")} ${chalk.green(
+						info.responseCount
+					)}\n` +
+					`${chalk.bold("View Count:")} ${chalk.green(info.viewCount)}\n` +
+					`${chalk.bold("Extra info:")}\n` +
+					`  ${chalk.bold("Meta Title:")} ${chalk.green(
+						info.extraData.meta.title
+					)}\n` +
+					`  ${chalk.bold("Meta Description:")} ${chalk.green(
+						info.extraData.meta.description
+					)}\n` +
+					`  ${chalk.bold("Canonical URL:")} ${chalk.green(
+						info.extraData.meta.canonical
+					)}\n` +
+					`  ${chalk.bold("Alternate Languages:")}\n` +
+					`    ${chalk.bold("Japanese:")} ${chalk.green(
+						info.extraData.meta.alternateLanguages.ja
+					)}\n` +
+					`    ${chalk.bold("English:")} ${chalk.green(
+						info.extraData.meta.alternateLanguages.en
+					)}\n` +
+					`  ${chalk.bold("Description Header:")} ${chalk.green(
+						info.extraData.meta.descriptionHeader
+					)}\n` +
+					`  ${chalk.bold("OGP Description:")} ${chalk.green(
+						info.extraData.meta.ogp.description
+					)}\n` +
+					`  ${chalk.bold("OGP Image:")} ${chalk.green(
+						info.extraData.meta.ogp.image
+					)}\n` +
+					`  ${chalk.bold("OGP Title:")} ${chalk.green(
+						info.extraData.meta.ogp.title
+					)}\n` +
+					`  ${chalk.bold("OGP Type:")} ${chalk.green(
+						info.extraData.meta.ogp.type
+					)}\n` +
+					`  ${chalk.bold("Twitter Description:")} ${chalk.green(
+						info.extraData.meta.twitter.description
+					)}\n` +
+					`  ${chalk.bold("Twitter Image:")} ${chalk.green(
+						info.extraData.meta.twitter.image
+					)}\n` +
+					`  ${chalk.bold("Twitter Title:")} ${chalk.green(
+						info.extraData.meta.twitter.title
+					)}\n` +
+					`  ${chalk.bold("Twitter Card:")} ${chalk.green(
+						info.extraData.meta.twitter.card
+					)}\n` +
+					`${chalk.bold("AI Type:")} ${chalk.green(info.aiType)}`
+			);
 
-		if (options.comments) {
-			const data = (await pixiv.getIllustComments(id)) as Data;
+			if (options.image) {
+				const image = info.urls.original;
+				const response = await fetch(image, {
+					headers: {
+						Referer: "http://www.pixiv.net/",
+					},
+				});
 
-			console.log(chalk.bold("\nComments:\n---------"));
+				await showImage(Buffer.from(await response.arrayBuffer()));
+			}
 
-			for (const comment of data.body.comments)
-				console.log(
-					`${chalk.blue(comment.userName)} (${chalk.yellow(comment.userId)}): ${
-						comment.comment
-					}`
-				);
+			if (options.comments) {
+				const data = (await pixiv.getIllustComments(id)) as Data;
+
+				console.log(chalk.bold("\nComments:\n---------"));
+
+				for (const comment of data.body.comments)
+					console.log(
+						`${chalk.blue(comment.userName)} (${chalk.yellow(
+							comment.userId
+						)}): ${comment.comment}`
+					);
+			}
 		}
-	});
+	);
 
 program
 	.command("login")
@@ -228,6 +282,10 @@ program
 	.option("-m, --mode <all|safe|r18>", "Mode of the search")
 	.option("-t, --type <all|illustrations|manga>", "What to search for")
 	.option("-a, --ai", "Whether to include AI generated art")
+	.option(
+		"-i, --image",
+		"Whether to display images with the Kitty Graphics Protocol"
+	)
 	.action(
 		async (
 			query: string,
@@ -235,6 +293,7 @@ program
 				mode: "all" | "safe" | "r18";
 				type: "all" | "illustrations" | "manga" | "illust_and_ugoira";
 				ai: string | boolean | 1;
+				image: boolean;
 			}
 		) => {
 			const file = new URL("../settings.json", import.meta.url);
@@ -256,7 +315,7 @@ program
 				...(options.ai && { ai: 1 }),
 			})) as Data;
 
-			for (const post of data.body.illustManga.data)
+			for (const post of data.body.illustManga.data) {
 				console.log(
 					`${chalk.yellow(`ID: ${post.id}`)}\n` +
 						`${chalk.cyan(`Tags: ${post.tags.join(", ")}`)}\n` +
@@ -269,6 +328,19 @@ program
 						`${chalk.gray(`Created At: ${post.createDate}`)}\n` +
 						`${chalk.gray(`Updated At: ${post.updateDate}`)}\n`
 				);
+
+				if (options.image) {
+					const data = (await pixiv.getPost(post.id)) as Data;
+
+					const response = await fetch(data.body.urls.original, {
+						headers: {
+							Referer: "http://www.pixiv.net/",
+						},
+					});
+
+					await showImage(Buffer.from(await response.arrayBuffer()));
+				}
+			}
 
 			console.log(
 				`${chalk.yellow(`Related tags: ${data.body.relatedTags.join(", ")}`)}`

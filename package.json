@@ -1,6 +1,6 @@
 {
 	"name": "pixiv-cli",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"description": "CLI tool for pixiv",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -22,7 +22,8 @@
 	},
 	"keywords": [
 		"pixiv",
-		"cli"
+		"cli",
+		"terminal"
 	],
 	"author": "FireStreaker2",
 	"license": "MIT",

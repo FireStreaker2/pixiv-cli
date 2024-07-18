@@ -7,6 +7,10 @@
 
 pixiv-cli is an easy way to interact with pixiv through a terminal. It supports most read only actions, via the usage of [pixiv-node](https://github.com/FireStreaker2/pixiv-node).
 
+<div align="center">
+  https://github.com/user-attachments/assets/88fe7184-00a5-4d31-bcc0-c0da3212223c
+</div>  
+
 # Usage
 
 ## Installation
@@ -34,12 +38,16 @@ Commands:
   help [command]              display help for command
 ```
 
+## Images
+
+pixiv-cli supports displaying preview images if the terminal supports the [Kitty Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/). To enable it, use the `-i`/`--image` flag with the info or search command.
+
 ## Example
 
 ```bash
 $ pixiv login $PIXIV_COOKIE
-$ pixiv search "gawr gura" -am "r18"
-$ pixiv info 119640517
+$ pixiv search "gawr gura" -aim "r18"
+$ pixiv info 119640517 -i
 $ pixiv download 119640517 -d homework
 ```
 
