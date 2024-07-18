@@ -8,7 +8,9 @@
 pixiv-cli is an easy way to interact with pixiv through a terminal. It supports most read only actions, via the usage of [pixiv-node](https://github.com/FireStreaker2/pixiv-node).
 
 <div align="center">
-  https://github.com/user-attachments/assets/88fe7184-00a5-4d31-bcc0-c0da3212223c
+  
+https://github.com/user-attachments/assets/6f429187-69ab-4680-aed4-d99340eafb35
+
 </div>  
 
 # Usage
