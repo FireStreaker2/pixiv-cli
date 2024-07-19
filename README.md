@@ -37,6 +37,7 @@ Commands:
   info|i [options] <id>       Get info on a specific post
   login|l <cookie>            Login to pixiv with your browser cookie
   search|s [options] <query>  Search pixiv for a post
+  user|u [options] <id>       Get the info of a user
   help [command]              display help for command
 ```
 
